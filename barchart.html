@@ -6,128 +6,193 @@
     <title>Electricity Data Visualization</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; color: #333; padding: 20px; }
-        .container { max-width: 1100px; margin: auto; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .header { text-align: center; margin-bottom: 30px; }
-        .filter-section { text-align: center; margin-bottom: 40px; background: #e9ecef; padding: 20px; border-radius: 8px; }
-        select { padding: 10px 15px; font-size: 16px; border-radius: 5px; border: 1px solid #ced4da; width: 280px; cursor: pointer; }
-        .chart-container { position: relative; height: 450px; margin-bottom: 80px; }
-        h2 { border-left: 5px solid #007bff; padding-left: 15px; margin-bottom: 20px; color: #0056b3; }
+        body { font-family: sans-serif; padding: 20px; background-color: #f9f9f9; }
+        .controls { margin-bottom: 20px; padding: 15px; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .chart-container { 
+            width: 90%; 
+            max-width: 1000px; 
+            margin: 20px auto; 
+            background: #fff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        select { padding: 8px; font-size: 16px; border-radius: 4px; border: 1px solid #ccc; }
+        h2, h3 { color: #333; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <h1>Electricity Usage & User Analysis</h1>
-        <p>Interactive dashboard grouping by category and filtered by province</p>
-    </div>
+    <h2>Electricity Data Dashboard</h2>
 
-    <div class="filter-section">
-        <label for="provinceSelect"><strong>Select Province: </strong></label>
+    <div class="controls">
+        <label for="provinceSelect"><strong>Select Province:</strong> </label>
         <select id="provinceSelect" onchange="updateCharts()">
-            </select>
+            <option value="">Loading provinces...</option>
+        </select>
     </div>
 
-    <div class="chart-box">
-        <h2>1. Electricity Usages (kWh) by Year</h2>
-        <div class="chart-container">
-            <canvas id="usageChart"></canvas>
-        </div>
+    <div class="chart-container">
+        <h3>1. Electricity Usages (kWh)</h3>
+        <canvas id="usageChart"></canvas>
     </div>
 
-    <div class="chart-box" style="margin-top: 50px;">
-        <h2>2. Number of Electricity Users by Year</h2>
-        <div class="chart-container">
-            <canvas id="userChart"></canvas>
-        </div>
+    <div class="chart-container">
+        <h3>2. Electricity Users (Count)</h3>
+        <canvas id="usersChart"></canvas>
     </div>
-</div>
 
-<script>
-    // Data Structure processed from JSON
-    // Format: data[province][year] = {category: value}
-    const electricityData = {
-        // This is a sample structure. In a real scenario, 
-        // the Python script would inject the full JSON here.
-        "provinces": ["Bangkok", "Krabi", "Kalasin", "Kanchanaburi"],
-        "years": ["2564", "2565", "2566"],
-        "categories": [
-            "Residential", "Small Business", "Medium Business", "Large Business", 
-            "Specialized Business", "Public Electricity", "EV Charging"
-        ]
-    };
+    <script>
+        // Global variables
+        let usageDataRaw = [];
+        let usersDataRaw = [];
+        let usageChartInstance = null;
+        let usersChartInstance = null;
 
-    // Placeholder for actual data logic
-    let usageChartInstance = null;
-    let userChartInstance = null;
+        // Configuration: List of category prefixes found in your JSON keys
+        const CATEGORIES = [
+            { id: 'residential', label: 'Residential' },
+            { id: 'small_business', label: 'Small Business' },
+            { id: 'medium_business', label: 'Medium Business' },
+            { id: 'large_business', label: 'Large Business' },
+            { id: 'specialized_business', label: 'Specialized Business' },
+            { id: 'government_state_enterprise', label: 'Govt & State Enterprise' },
+            { id: 'public_electricity', label: 'Public Electricity' },
+            { id: 'water_pumping', label: 'Water Pumping' },
+            { id: 'temporary_electricity', label: 'Temporary' },
+            { id: 'ev_charging', label: 'EV Charging' }
+            // Add 'backup_power' or others here if you want them plotted
+        ];
 
-    const colors = [
-        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', 
-        '#858796', '#5a5c69', '#6610f2', '#fd7e14'
-    ];
+        // Colors for the bars
+        const COLORS = [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', 
+            '#FF9F40', '#E7E9ED', '#767676', '#2E8B57', '#8B0000'
+        ];
 
-    function init() {
-        const select = document.getElementById('provinceSelect');
-        electricityData.provinces.forEach(p => {
-            let opt = document.createElement('option');
-            opt.value = p;
-            opt.innerHTML = p;
-            select.appendChild(opt);
-        });
-        updateCharts();
-    }
+        // --- 1. Load Data ---
+        async function loadData() {
+            try {
+                const [usageRes, usersRes] = await Promise.all([
+                    fetch('electricity_usages_en.json'),
+                    fetch('electricity_users_en.json')
+                ]);
 
-    function createDatasets(province, type) {
-        // Logic to extract specific values based on the grouping
-        return electricityData.categories.map((cat, index) => ({
-            label: cat,
-            data: [/* values for 2564, 2565, 2566 from your JSON */],
-            backgroundColor: colors[index % colors.length]
-        }));
-    }
+                const usageJson = await usageRes.json();
+                const usersJson = await usersRes.json();
 
-    function updateCharts() {
-        const selectedProvince = document.getElementById('provinceSelect').value;
-        const ctxUsage = document.getElementById('usageChart').getContext('2d');
-        const ctxUser = document.getElementById('userChart').getContext('2d');
+                // HANDLE "Sheet1" structure in usage file
+                usageDataRaw = usageJson.Sheet1 ? usageJson.Sheet1 : usageJson;
+                
+                // Users file seems to be a direct array based on your snippet
+                usersDataRaw = usersJson;
 
-        if (usageChartInstance) usageChartInstance.destroy();
-        if (userChartInstance) userChartInstance.destroy();
+                populateProvinces();
+                updateCharts();
 
-        // 1. Logic for Usages Chart (Grouping by Category)
-        usageChartInstance = new Chart(ctxUsage, {
-            type: 'bar',
-            data: {
-                labels: electricityData.years,
-                datasets: createDatasets(selectedProvince, 'usage')
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true, title: { display: true, text: 'kWh' } } },
-                plugins: { legend: { position: 'bottom' } }
+            } catch (error) {
+                console.error("Error loading JSON files:", error);
+                alert("Failed to load JSON data. Open console (F12) for details.");
             }
-        });
+        }
 
-        // 2. Logic for Users Chart (Grouping by Category)
-        userChartInstance = new Chart(ctxUser, {
-            type: 'bar',
-            data: {
-                labels: electricityData.years,
-                datasets: createDatasets(selectedProvince, 'users')
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true, title: { display: true, text: 'Total Users' } } },
-                plugins: { legend: { position: 'bottom' } }
-            }
-        });
-    }
+        // --- 2. Populate Dropdown ---
+        function populateProvinces() {
+            // Get unique province names from users data
+            const provinces = [...new Set(usersDataRaw.map(item => item.province_name))].sort();
+            
+            const select = document.getElementById('provinceSelect');
+            select.innerHTML = ''; 
 
-    window.onload = init;
-</script>
+            provinces.forEach(prov => {
+                const option = document.createElement('option');
+                option.value = prov;
+                option.text = prov;
+                select.appendChild(option);
+            });
 
+            if (provinces.length > 0) select.value = provinces[0];
+        }
+
+        // --- 3. Process Data (Wide Format) ---
+        function processWideData(rawData, selectedProvince, suffix) {
+            // 1. Filter data for the selected province
+            const provinceData = rawData.filter(d => d.province_name === selectedProvince);
+
+            // 2. Extract Years (X-Axis) and sort them
+            const years = [...new Set(provinceData.map(d => d.year))].sort((a, b) => a - b);
+
+            // 3. Build Datasets (one for each Category)
+            const datasets = CATEGORIES.map((cat, index) => {
+                // Construct the exact key, e.g., 'residential' + '_count' = 'residential_count'
+                const dataKey = `${cat.id}${suffix}`;
+
+                return {
+                    label: cat.label,
+                    backgroundColor: COLORS[index % COLORS.length],
+                    data: years.map(year => {
+                        // Find the row for this year
+                        const record = provinceData.find(d => d.year === year);
+                        // Return the value if record exists, else 0
+                        return record ? record[dataKey] : 0;
+                    })
+                };
+            });
+
+            return { labels: years, datasets: datasets };
+        }
+
+        // --- 4. Render Charts ---
+        function updateCharts() {
+            const selectedProvince = document.getElementById('provinceSelect').value;
+            if (!selectedProvince) return;
+
+            // --- Chart 1: Usages (Suffix: _kwh) ---
+            const usageChartData = processWideData(usageDataRaw, selectedProvince, '_kwh');
+            
+            const ctxUsage = document.getElementById('usageChart').getContext('2d');
+            if (usageChartInstance) usageChartInstance.destroy();
+
+            usageChartInstance = new Chart(ctxUsage, {
+                type: 'bar',
+                data: usageChartData,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: { display: true, text: `Electricity Usage (kWh) - ${selectedProvince}` },
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Year' } },
+                        y: { title: { display: true, text: 'kWh' }, beginAtZero: true }
+                    }
+                }
+            });
+
+            // --- Chart 2: Users (Suffix: _count) ---
+            const usersChartData = processWideData(usersDataRaw, selectedProvince, '_count');
+
+            const ctxUsers = document.getElementById('usersChart').getContext('2d');
+            if (usersChartInstance) usersChartInstance.destroy();
+
+            usersChartInstance = new Chart(ctxUsers, {
+                type: 'bar',
+                data: usersChartData,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: { display: true, text: `Electricity Users (Count) - ${selectedProvince}` },
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Year' } },
+                        y: { title: { display: true, text: 'Number of Users' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Initialize
+        loadData();
+
+    </script>
 </body>
 </html>
