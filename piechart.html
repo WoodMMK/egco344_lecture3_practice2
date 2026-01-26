@@ -1,0 +1,131 @@
+<<<<<<< HEAD
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pie Charts</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f5f5f5;
+            margin: 0;
+        }
+        .container {
+            display: flex;
+            gap: 40px;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .chart-wrapper {
+            width: 400px;
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chart-wrapper">
+            <h2>electricity usages of each category</h2>
+            <canvas id="pieChart1"></canvas>
+        </div>
+        <div class="chart-wrapper">
+            <h2>electricity users of each category</h2>
+            <canvas id="pieChart2"></canvas>
+        </div>
+    </div>
+
+    <script>
+        async function loadData() {
+            const [usagesResponse, usersResponse] = await Promise.all([
+                fetch('electricity_usages_en.json'),
+                fetch('electricity_users_en.json')
+            ]);
+            const usagesData = await usagesResponse.json();
+            const usersData = await usersResponse.json();
+            return { usages: usagesData.Sheet1, users: usersData };
+        }
+
+        function sumCategories(data, keySuffix) {
+            const sums = {};
+            data.forEach(item => {
+                Object.keys(item).forEach(key => {
+                    if (key.endsWith(keySuffix)) {
+                        const category = key.replace('_' + keySuffix, '');
+                        sums[category] = (sums[category] || 0) + item[key];
+                    }
+                });
+            });
+            return sums;
+        }
+
+        function formatLabel(key) {
+            return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        loadData().then(({ usages, users }) => {
+            const usageSums = sumCategories(usages, 'kwh');
+            const userSums = sumCategories(users, 'count');
+
+            const usageLabels = Object.keys(usageSums).map(formatLabel);
+            const usageData = Object.values(usageSums);
+
+            const userLabels = Object.keys(userSums).map(formatLabel);
+            const userData = Object.values(userSums);
+
+            // First Pie Chart
+            const ctx1 = document.getElementById('pieChart1').getContext('2d');
+            new Chart(ctx1, {
+                type: 'pie',
+                data: {
+                    labels: usageLabels,
+                    datasets: [{
+                        data: usageData,
+                        backgroundColor: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#aec7e8', '#ffbb78']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            // Second Pie Chart
+            const ctx2 = document.getElementById('pieChart2').getContext('2d');
+            new Chart(ctx2, {
+                type: 'pie',
+                data: {
+                    labels: userLabels,
+                    datasets: [{
+                        data: userData,
+                        backgroundColor: ['#4e79a7', '#f28e2c', '#e15759', '#76b7b2', '#59a14f', '#edc949', '#af7aa1', '#ff9da7', '#9c755f', '#bab0ab', '#d7b5a6', '#8dd3c7']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+        });
+        // jsdelivr
+    </script>
+</body>
+
+</html>
+=======
+>>>>>>> c58f83f38a354cf2b4e21fb14362fe780767f909
