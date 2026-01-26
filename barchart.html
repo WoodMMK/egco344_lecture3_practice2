@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electricity Data Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f9f9f9; }
+        .controls { margin-bottom: 20px; padding: 15px; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .chart-container { 
+            width: 90%; 
+            max-width: 1000px; 
+            margin: 20px auto; 
+            background: #fff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        select { padding: 8px; font-size: 16px; border-radius: 4px; border: 1px solid #ccc; }
+        h2, h3 { color: #333; }
+    </style>
+</head>
+<body>
+
+    <h2>Electricity Data Dashboard</h2>
+
+    <div class="controls">
+        <label for="provinceSelect"><strong>Select Province:</strong> </label>
+        <select id="provinceSelect" onchange="updateCharts()">
+            <option value="">Loading provinces...</option>
+        </select>
+    </div>
+
+    <div class="chart-container">
+        <h3>1. Electricity Usages (kWh)</h3>
+        <canvas id="usageChart"></canvas>
+    </div>
+
+    <div class="chart-container">
+        <h3>2. Electricity Users (Count)</h3>
+        <canvas id="usersChart"></canvas>
+    </div>
+
+    <script>
+        let usageDataRaw = [];
+        let usersDataRaw = [];
+        let usageChartInstance = null;
+        let usersChartInstance = null;
+
+        const CATEGORIES = [
+            { id: 'residential', label: 'Residential' },
+            { id: 'small_business', label: 'Small Business' },
+            { id: 'medium_business', label: 'Medium Business' },
+            { id: 'large_business', label: 'Large Business' },
+            { id: 'specialized_business', label: 'Specialized Business' },
+            { id: 'government_state_enterprise', label: 'Govt & State Enterprise' },
+            { id: 'public_electricity', label: 'Public Electricity' },
+            { id: 'water_pumping', label: 'Water Pumping' },
+            { id: 'temporary_electricity', label: 'Temporary' },
+            { id: 'ev_charging', label: 'EV Charging' }
+        ];
+
+        const COLORS = [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', 
+            '#FF9F40', '#E7E9ED', '#767676', '#2E8B57', '#8B0000'
+        ];
+
+        async function loadData() {
+            try {
+                const [usageRes, usersRes] = await Promise.all([
+                    fetch('electricity_usages_en.json'),
+                    fetch('electricity_users_en.json')
+                ]);
+
+                const usageJson = await usageRes.json();
+                const usersJson = await usersRes.json();
+
+                usageDataRaw = usageJson.Sheet1 ? usageJson.Sheet1 : usageJson;
+                
+                usersDataRaw = usersJson;
+
+                populateProvinces();
+                updateCharts();
+
+            } catch (error) {
+                console.error("Error loading JSON files:", error);
+                alert("Failed to load JSON data. Open console (F12) for details.");
+            }
+        }
+
+        function populateProvinces() {
+            const provinces = [...new Set(usersDataRaw.map(item => item.province_name))].sort();
+            
+            const select = document.getElementById('provinceSelect');
+            select.innerHTML = ''; 
+
+            provinces.forEach(prov => {
+                const option = document.createElement('option');
+                option.value = prov;
+                option.text = prov;
+                select.appendChild(option);
+            });
+
+            if (provinces.length > 0) select.value = provinces[0];
+        }
+
+        function processWideData(rawData, selectedProvince, suffix) {
+
+            const provinceData = rawData.filter(d => d.province_name === selectedProvince);
+            const years = [...new Set(provinceData.map(d => d.year))].sort((a, b) => a - b);
+            const datasets = CATEGORIES.map((cat, index) => {
+                const dataKey = `${cat.id}${suffix}`;
+
+                return {
+                    label: cat.label,
+                    backgroundColor: COLORS[index % COLORS.length],
+                    data: years.map(year => {
+                        const record = provinceData.find(d => d.year === year);
+                        return record ? record[dataKey] : 0;
+                    })
+                };
+            });
+
+            return { labels: years, datasets: datasets };
+        }
+
+        function updateCharts() {
+            const selectedProvince = document.getElementById('provinceSelect').value;
+            if (!selectedProvince) return;
+
+            const usageChartData = processWideData(usageDataRaw, selectedProvince, '_kwh');
+            
+            const ctxUsage = document.getElementById('usageChart').getContext('2d');
+            if (usageChartInstance) usageChartInstance.destroy();
+
+            usageChartInstance = new Chart(ctxUsage, {
+                type: 'bar',
+                data: usageChartData,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: { display: true, text: `Electricity Usage (kWh) - ${selectedProvince}` },
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Year' } },
+                        y: { title: { display: true, text: 'kWh' }, beginAtZero: true }
+                    }
+                }
+            });
+
+            const usersChartData = processWideData(usersDataRaw, selectedProvince, '_count');
+
+            const ctxUsers = document.getElementById('usersChart').getContext('2d');
+            if (usersChartInstance) usersChartInstance.destroy();
+
+            usersChartInstance = new Chart(ctxUsers, {
+                type: 'bar',
+                data: usersChartData,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: { display: true, text: `Electricity Users (Count) - ${selectedProvince}` },
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Year' } },
+                        y: { title: { display: true, text: 'Number of Users' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        loadData();
+
+    </script>
+</body>
+</html>
