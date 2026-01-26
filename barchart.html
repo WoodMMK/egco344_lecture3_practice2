@@ -43,13 +43,11 @@
     </div>
 
     <script>
-        // Global variables
         let usageDataRaw = [];
         let usersDataRaw = [];
         let usageChartInstance = null;
         let usersChartInstance = null;
 
-        // Configuration: List of category prefixes found in your JSON keys
         const CATEGORIES = [
             { id: 'residential', label: 'Residential' },
             { id: 'small_business', label: 'Small Business' },
@@ -61,16 +59,13 @@
             { id: 'water_pumping', label: 'Water Pumping' },
             { id: 'temporary_electricity', label: 'Temporary' },
             { id: 'ev_charging', label: 'EV Charging' }
-            // Add 'backup_power' or others here if you want them plotted
         ];
 
-        // Colors for the bars
         const COLORS = [
             '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', 
             '#FF9F40', '#E7E9ED', '#767676', '#2E8B57', '#8B0000'
         ];
 
-        // --- 1. Load Data ---
         async function loadData() {
             try {
                 const [usageRes, usersRes] = await Promise.all([
@@ -81,10 +76,8 @@
                 const usageJson = await usageRes.json();
                 const usersJson = await usersRes.json();
 
-                // HANDLE "Sheet1" structure in usage file
                 usageDataRaw = usageJson.Sheet1 ? usageJson.Sheet1 : usageJson;
                 
-                // Users file seems to be a direct array based on your snippet
                 usersDataRaw = usersJson;
 
                 populateProvinces();
@@ -96,9 +89,7 @@
             }
         }
 
-        // --- 2. Populate Dropdown ---
         function populateProvinces() {
-            // Get unique province names from users data
             const provinces = [...new Set(usersDataRaw.map(item => item.province_name))].sort();
             
             const select = document.getElementById('provinceSelect');
@@ -114,26 +105,18 @@
             if (provinces.length > 0) select.value = provinces[0];
         }
 
-        // --- 3. Process Data (Wide Format) ---
         function processWideData(rawData, selectedProvince, suffix) {
-            // 1. Filter data for the selected province
+
             const provinceData = rawData.filter(d => d.province_name === selectedProvince);
-
-            // 2. Extract Years (X-Axis) and sort them
             const years = [...new Set(provinceData.map(d => d.year))].sort((a, b) => a - b);
-
-            // 3. Build Datasets (one for each Category)
             const datasets = CATEGORIES.map((cat, index) => {
-                // Construct the exact key, e.g., 'residential' + '_count' = 'residential_count'
                 const dataKey = `${cat.id}${suffix}`;
 
                 return {
                     label: cat.label,
                     backgroundColor: COLORS[index % COLORS.length],
                     data: years.map(year => {
-                        // Find the row for this year
                         const record = provinceData.find(d => d.year === year);
-                        // Return the value if record exists, else 0
                         return record ? record[dataKey] : 0;
                     })
                 };
@@ -142,12 +125,10 @@
             return { labels: years, datasets: datasets };
         }
 
-        // --- 4. Render Charts ---
         function updateCharts() {
             const selectedProvince = document.getElementById('provinceSelect').value;
             if (!selectedProvince) return;
 
-            // --- Chart 1: Usages (Suffix: _kwh) ---
             const usageChartData = processWideData(usageDataRaw, selectedProvince, '_kwh');
             
             const ctxUsage = document.getElementById('usageChart').getContext('2d');
@@ -168,7 +149,6 @@
                 }
             });
 
-            // --- Chart 2: Users (Suffix: _count) ---
             const usersChartData = processWideData(usersDataRaw, selectedProvince, '_count');
 
             const ctxUsers = document.getElementById('usersChart').getContext('2d');
@@ -190,7 +170,6 @@
             });
         }
 
-        // Initialize
         loadData();
 
     </script>
