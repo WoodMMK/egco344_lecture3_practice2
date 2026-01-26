@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electricity Data Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; color: #333; padding: 20px; }
+        .container { max-width: 1100px; margin: auto; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 30px; }
+        .filter-section { text-align: center; margin-bottom: 40px; background: #e9ecef; padding: 20px; border-radius: 8px; }
+        select { padding: 10px 15px; font-size: 16px; border-radius: 5px; border: 1px solid #ced4da; width: 280px; cursor: pointer; }
+        .chart-container { position: relative; height: 450px; margin-bottom: 80px; }
+        h2 { border-left: 5px solid #007bff; padding-left: 15px; margin-bottom: 20px; color: #0056b3; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Electricity Usage & User Analysis</h1>
+        <p>Interactive dashboard grouping by category and filtered by province</p>
+    </div>
+
+    <div class="filter-section">
+        <label for="provinceSelect"><strong>Select Province: </strong></label>
+        <select id="provinceSelect" onchange="updateCharts()">
+            </select>
+    </div>
+
+    <div class="chart-box">
+        <h2>1. Electricity Usages (kWh) by Year</h2>
+        <div class="chart-container">
+            <canvas id="usageChart"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-box" style="margin-top: 50px;">
+        <h2>2. Number of Electricity Users by Year</h2>
+        <div class="chart-container">
+            <canvas id="userChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Data Structure processed from JSON
+    // Format: data[province][year] = {category: value}
+    const electricityData = {
+        // This is a sample structure. In a real scenario, 
+        // the Python script would inject the full JSON here.
+        "provinces": ["Bangkok", "Krabi", "Kalasin", "Kanchanaburi"],
+        "years": ["2564", "2565", "2566"],
+        "categories": [
+            "Residential", "Small Business", "Medium Business", "Large Business", 
+            "Specialized Business", "Public Electricity", "EV Charging"
+        ]
+    };
+
+    // Placeholder for actual data logic
+    let usageChartInstance = null;
+    let userChartInstance = null;
+
+    const colors = [
+        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', 
+        '#858796', '#5a5c69', '#6610f2', '#fd7e14'
+    ];
+
+    function init() {
+        const select = document.getElementById('provinceSelect');
+        electricityData.provinces.forEach(p => {
+            let opt = document.createElement('option');
+            opt.value = p;
+            opt.innerHTML = p;
+            select.appendChild(opt);
+        });
+        updateCharts();
+    }
+
+    function createDatasets(province, type) {
+        // Logic to extract specific values based on the grouping
+        return electricityData.categories.map((cat, index) => ({
+            label: cat,
+            data: [/* values for 2564, 2565, 2566 from your JSON */],
+            backgroundColor: colors[index % colors.length]
+        }));
+    }
+
+    function updateCharts() {
+        const selectedProvince = document.getElementById('provinceSelect').value;
+        const ctxUsage = document.getElementById('usageChart').getContext('2d');
+        const ctxUser = document.getElementById('userChart').getContext('2d');
+
+        if (usageChartInstance) usageChartInstance.destroy();
+        if (userChartInstance) userChartInstance.destroy();
+
+        // 1. Logic for Usages Chart (Grouping by Category)
+        usageChartInstance = new Chart(ctxUsage, {
+            type: 'bar',
+            data: {
+                labels: electricityData.years,
+                datasets: createDatasets(selectedProvince, 'usage')
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, title: { display: true, text: 'kWh' } } },
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+
+        // 2. Logic for Users Chart (Grouping by Category)
+        userChartInstance = new Chart(ctxUser, {
+            type: 'bar',
+            data: {
+                labels: electricityData.years,
+                datasets: createDatasets(selectedProvince, 'users')
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, title: { display: true, text: 'Total Users' } } },
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+    }
+
+    window.onload = init;
+</script>
+
+</body>
+</html>
